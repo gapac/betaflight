@@ -175,9 +175,9 @@
 #define AH_SIDEBAR_HEIGHT_POS 3
 
 // Stick overlay size
-#define OSD_STICK_OVERLAY_WIDTH 25
-#define OSD_STICK_OVERLAY_HEIGHT 17
-#define OSD_STICK_OVERLAY_SPRITE_HEIGHT 3
+#define OSD_STICK_OVERLAY_WIDTH 28
+#define OSD_STICK_OVERLAY_HEIGHT 15
+#define OSD_STICK_OVERLAY_SPRITE_HEIGHT 9
 #define OSD_STICK_OVERLAY_VERTICAL_POSITIONS (OSD_STICK_OVERLAY_HEIGHT * OSD_STICK_OVERLAY_SPRITE_HEIGHT)
 
 #define FULL_CIRCLE 360
@@ -1532,15 +1532,17 @@ static void osdElementStickOverlay(osdElementParms_t *element)
     const uint8_t cursorY = OSD_STICK_OVERLAY_VERTICAL_POSITIONS - 1 - scaleRange(constrain(rcData[vertical_channel], PWM_RANGE_MIN, PWM_RANGE_MAX - 1), PWM_RANGE_MIN, PWM_RANGE_MAX, 0, OSD_STICK_OVERLAY_VERTICAL_POSITIONS);
     const char cursor = SYM_STICK_OVERLAY_SPRITE_HIGH + (cursorY % OSD_STICK_OVERLAY_SPRITE_HEIGHT);
 
+    //display cursor
     osdDisplayWriteChar(element, xpos + cursorX, ypos + cursorY / OSD_STICK_OVERLAY_SPRITE_HEIGHT, DISPLAYPORT_SEVERITY_NORMAL, cursor);
 
     //const uint8_t width = constrain(osdConfig()->camera_frame_width, OSD_CAMERA_FRAME_MIN_WIDTH, OSD_CAMERA_FRAME_MAX_WIDTH)/3;
     //const uint8_t height = constrain(osdConfig()->camera_frame_height, OSD_CAMERA_FRAME_MIN_HEIGHT, OSD_CAMERA_FRAME_MAX_HEIGHT)/3;
+    
+    //set whidth and hight based on stick position
+    const uint8_t width = scaleRange(constrain(rcData[horizontalR_channel], PWM_RANGE_MIN, PWM_RANGE_MAX - 1), PWM_RANGE_MIN, PWM_RANGE_MAX, OSD_CAMERA_FRAME_MIN_WIDTH, OSD_CAMERA_FRAME_MAX_WIDTH);
+    const uint8_t height= scaleRange(constrain(rcData[verticalR_channel], PWM_RANGE_MIN, PWM_RANGE_MAX - 1), PWM_RANGE_MIN, PWM_RANGE_MAX, OSD_CAMERA_FRAME_MIN_HEIGHT, OSD_CAMERA_FRAME_MAX_HEIGHT);
 
-    const uint8_t width = scaleRange(constrain(rcData[horizontalR_channel], PWM_RANGE_MIN, PWM_RANGE_MAX - 1), PWM_RANGE_MIN, PWM_RANGE_MAX, OSD_CAMERA_FRAME_MIN_WIDTH, OSD_CAMERA_FRAME_MAX_WIDTH)/2;
-    const uint8_t height= scaleRange(constrain(rcData[verticalR_channel], PWM_RANGE_MIN, PWM_RANGE_MAX - 1), PWM_RANGE_MIN, PWM_RANGE_MAX, OSD_CAMERA_FRAME_MIN_HEIGHT, OSD_CAMERA_FRAME_MAX_HEIGHT)/2;
-
-
+    //write horizontal line in buffer
     element->buff[0] = SYM_STICK_OVERLAY_CENTER;
     for (int i = 1; i < (width - 1); i++) {
         element->buff[i] = SYM_STICK_OVERLAY_HORIZONTAL;
@@ -1548,12 +1550,15 @@ static void osdElementStickOverlay(osdElementParms_t *element)
     element->buff[width - 1] = SYM_STICK_OVERLAY_CENTER;
     element->buff[width] = 0;  // string terminator
 
-    osdDisplayWrite(element, xpos + cursorX, ypos + cursorY / OSD_STICK_OVERLAY_SPRITE_HEIGHT, DISPLAYPORT_SEVERITY_NORMAL, element->buff);
+    //horizontal line can be written in one go
+    osdDisplayWrite(element, xpos + cursorX - width/2, ypos + cursorY/OSD_STICK_OVERLAY_SPRITE_HEIGHT - height/2 , DISPLAYPORT_SEVERITY_NORMAL, element->buff);
     for (int i = 1; i < (height - 1); i++) {
-        osdDisplayWriteChar(element, xpos + cursorX, ypos + i + cursorY / OSD_STICK_OVERLAY_SPRITE_HEIGHT, DISPLAYPORT_SEVERITY_NORMAL, SYM_STICK_OVERLAY_VERTICAL);
-        osdDisplayWriteChar(element, xpos + cursorX + width - 1, ypos + i + cursorY / OSD_STICK_OVERLAY_SPRITE_HEIGHT, DISPLAYPORT_SEVERITY_NORMAL, SYM_STICK_OVERLAY_VERTICAL);
+        //Vertical lines need to be written one at a time   
+        osdDisplayWriteChar(element, xpos + cursorX - width/2, ypos + i + cursorY/OSD_STICK_OVERLAY_SPRITE_HEIGHT - height/2, DISPLAYPORT_SEVERITY_NORMAL, SYM_STICK_OVERLAY_VERTICAL);
+        osdDisplayWriteChar(element, xpos + cursorX - width/2 + width - 1, ypos + i + cursorY/OSD_STICK_OVERLAY_SPRITE_HEIGHT - height/2, DISPLAYPORT_SEVERITY_NORMAL, SYM_STICK_OVERLAY_VERTICAL);
     }
-    osdDisplayWrite(element, xpos + cursorX, ypos  + height - 1 + cursorY / OSD_STICK_OVERLAY_SPRITE_HEIGHT, DISPLAYPORT_SEVERITY_NORMAL, element->buff);
+    //bottom horizontal line can be written in one go
+    osdDisplayWrite(element, xpos + cursorX - width/2, ypos  + height - 1 + cursorY/OSD_STICK_OVERLAY_SPRITE_HEIGHT - height/2, DISPLAYPORT_SEVERITY_NORMAL, element->buff);
 
     element->drawElement = false;  // element already drawn
 }
