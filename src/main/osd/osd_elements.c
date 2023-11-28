@@ -175,8 +175,8 @@
 #define AH_SIDEBAR_HEIGHT_POS 3
 
 // Stick overlay size
-#define OSD_STICK_OVERLAY_WIDTH 7
-#define OSD_STICK_OVERLAY_HEIGHT 5
+#define OSD_STICK_OVERLAY_WIDTH 25
+#define OSD_STICK_OVERLAY_HEIGHT 17
 #define OSD_STICK_OVERLAY_SPRITE_HEIGHT 3
 #define OSD_STICK_OVERLAY_VERTICAL_POSITIONS (OSD_STICK_OVERLAY_HEIGHT * OSD_STICK_OVERLAY_SPRITE_HEIGHT)
 
@@ -1462,6 +1462,31 @@ static void osdElementRsnr(osdElementParms_t *element)
 }
 #endif // USE_RX_RSNR
 
+static void osdElementRaceTrack(osdElementParms_t *element)
+{
+ const uint8_t xpos = element->elemPosX;
+    const uint8_t ypos = element->elemPosY;
+
+    // Now draw the cursor
+    rc_alias_e vertical_channel, horizontal_channel;
+
+    if (element->item == OSD_STICK_OVERLAY_LEFT) {
+        vertical_channel = radioModes[osdConfig()->overlay_radio_mode-1].left_vertical;
+        horizontal_channel = radioModes[osdConfig()->overlay_radio_mode-1].left_horizontal;
+    } else {
+        vertical_channel = radioModes[osdConfig()->overlay_radio_mode-1].right_vertical;
+        horizontal_channel = radioModes[osdConfig()->overlay_radio_mode-1].right_horizontal;
+    }
+
+    const uint8_t cursorX = scaleRange(constrain(rcData[horizontal_channel], PWM_RANGE_MIN, PWM_RANGE_MAX - 1), PWM_RANGE_MIN, PWM_RANGE_MAX, 0, OSD_STICK_OVERLAY_WIDTH);
+    const uint8_t cursorY = OSD_STICK_OVERLAY_VERTICAL_POSITIONS - 1 - scaleRange(constrain(rcData[vertical_channel], PWM_RANGE_MIN, PWM_RANGE_MAX - 1), PWM_RANGE_MIN, PWM_RANGE_MAX, 0, OSD_STICK_OVERLAY_VERTICAL_POSITIONS);
+    const char cursor = SYM_STICK_OVERLAY_SPRITE_HIGH + (cursorY % OSD_STICK_OVERLAY_SPRITE_HEIGHT);
+
+    osdDisplayWriteChar(element, xpos + cursorX, ypos + cursorY / OSD_STICK_OVERLAY_SPRITE_HEIGHT, DISPLAYPORT_SEVERITY_NORMAL, cursor);
+
+    element->drawElement = false;  // element already drawn
+}
+
 #ifdef USE_OSD_STICK_OVERLAY
 static void osdBackgroundStickOverlay(osdElementParms_t *element)
 {
@@ -1491,7 +1516,7 @@ static void osdElementStickOverlay(osdElementParms_t *element)
     const uint8_t ypos = element->elemPosY;
 
     // Now draw the cursor
-    rc_alias_e vertical_channel, horizontal_channel;
+    rc_alias_e vertical_channel, horizontal_channel, verticalR_channel, horizontalR_channel;
 
     if (element->item == OSD_STICK_OVERLAY_LEFT) {
         vertical_channel = radioModes[osdConfig()->overlay_radio_mode-1].left_vertical;
@@ -1499,6 +1524,8 @@ static void osdElementStickOverlay(osdElementParms_t *element)
     } else {
         vertical_channel = radioModes[osdConfig()->overlay_radio_mode-1].right_vertical;
         horizontal_channel = radioModes[osdConfig()->overlay_radio_mode-1].right_horizontal;
+        verticalR_channel = radioModes[osdConfig()->overlay_radio_mode-1].left_vertical;
+        horizontalR_channel = radioModes[osdConfig()->overlay_radio_mode-1].left_horizontal;
     }
 
     const uint8_t cursorX = scaleRange(constrain(rcData[horizontal_channel], PWM_RANGE_MIN, PWM_RANGE_MAX - 1), PWM_RANGE_MIN, PWM_RANGE_MAX, 0, OSD_STICK_OVERLAY_WIDTH);
@@ -1506,6 +1533,27 @@ static void osdElementStickOverlay(osdElementParms_t *element)
     const char cursor = SYM_STICK_OVERLAY_SPRITE_HIGH + (cursorY % OSD_STICK_OVERLAY_SPRITE_HEIGHT);
 
     osdDisplayWriteChar(element, xpos + cursorX, ypos + cursorY / OSD_STICK_OVERLAY_SPRITE_HEIGHT, DISPLAYPORT_SEVERITY_NORMAL, cursor);
+
+    //const uint8_t width = constrain(osdConfig()->camera_frame_width, OSD_CAMERA_FRAME_MIN_WIDTH, OSD_CAMERA_FRAME_MAX_WIDTH)/3;
+    //const uint8_t height = constrain(osdConfig()->camera_frame_height, OSD_CAMERA_FRAME_MIN_HEIGHT, OSD_CAMERA_FRAME_MAX_HEIGHT)/3;
+
+    const uint8_t width = scaleRange(constrain(rcData[horizontalR_channel], PWM_RANGE_MIN, PWM_RANGE_MAX - 1), PWM_RANGE_MIN, PWM_RANGE_MAX, OSD_CAMERA_FRAME_MIN_WIDTH, OSD_CAMERA_FRAME_MAX_WIDTH)/2;
+    const uint8_t height= scaleRange(constrain(rcData[verticalR_channel], PWM_RANGE_MIN, PWM_RANGE_MAX - 1), PWM_RANGE_MIN, PWM_RANGE_MAX, OSD_CAMERA_FRAME_MIN_HEIGHT, OSD_CAMERA_FRAME_MAX_HEIGHT)/2;
+
+
+    element->buff[0] = SYM_STICK_OVERLAY_CENTER;
+    for (int i = 1; i < (width - 1); i++) {
+        element->buff[i] = SYM_STICK_OVERLAY_HORIZONTAL;
+    }
+    element->buff[width - 1] = SYM_STICK_OVERLAY_CENTER;
+    element->buff[width] = 0;  // string terminator
+
+    osdDisplayWrite(element, xpos + cursorX, ypos + cursorY / OSD_STICK_OVERLAY_SPRITE_HEIGHT, DISPLAYPORT_SEVERITY_NORMAL, element->buff);
+    for (int i = 1; i < (height - 1); i++) {
+        osdDisplayWriteChar(element, xpos + cursorX, ypos + i + cursorY / OSD_STICK_OVERLAY_SPRITE_HEIGHT, DISPLAYPORT_SEVERITY_NORMAL, SYM_STICK_OVERLAY_VERTICAL);
+        osdDisplayWriteChar(element, xpos + cursorX + width - 1, ypos + i + cursorY / OSD_STICK_OVERLAY_SPRITE_HEIGHT, DISPLAYPORT_SEVERITY_NORMAL, SYM_STICK_OVERLAY_VERTICAL);
+    }
+    osdDisplayWrite(element, xpos + cursorX, ypos  + height - 1 + cursorY / OSD_STICK_OVERLAY_SPRITE_HEIGHT, DISPLAYPORT_SEVERITY_NORMAL, element->buff);
 
     element->drawElement = false;  // element already drawn
 }
@@ -1665,6 +1713,7 @@ static const uint8_t osdElementDisplayOrder[] = {
     OSD_DISARMED,
     OSD_NUMERICAL_HEADING,
     OSD_READY_MODE,
+    OSD_RACETRACK,
 #ifdef USE_VARIO
     OSD_NUMERICAL_VARIO,
 #endif
@@ -1736,6 +1785,7 @@ const osdElementDrawFn osdElementDrawFunction[OSD_ITEM_COUNT] = {
     [OSD_RSSI_VALUE]              = osdElementRssi,
     [OSD_MAIN_BATT_VOLTAGE]       = osdElementMainBatteryVoltage,
     [OSD_CROSSHAIRS]              = osdElementCrosshairs,  // only has background, but needs to be over other elements (like artificial horizon)
+    [OSD_RACETRACK]              = osdElementRaceTrack,
 #ifdef USE_ACC
     [OSD_ARTIFICIAL_HORIZON]      = osdElementArtificialHorizon,
     [OSD_UP_DOWN_REFERENCE]       = osdElementUpDownReference,
